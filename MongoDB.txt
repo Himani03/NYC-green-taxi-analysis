@@ -1,0 +1,210 @@
+﻿MONGODB
+
+
+Query 1: Analysis for Rush Hour
+[
+    {
+      $group: {
+        _id: "$trip_hour",
+        tripCount: { $sum: 1 }
+      }
+    },
+    {
+      $sort: {
+        _id: 1
+      }
+    }
+  
+]
+
+
+
+
+Query 2: Analysis for Rush hours on each day
+[
+  {
+    $group: {
+      _id: {
+        day: "$trip_day",
+        hour: "$trip_hour"
+      },
+      totalTrips: { $sum: 1 }
+    }
+  },
+  {
+    $sort: {
+      totalTrips: -1
+    }
+  },
+  {
+    $group: {
+      _id: "$_id.day",
+      hours: {
+        $push: {
+          hour: "$_id.hour",
+          totalTrips: "$totalTrips"
+        }
+      }
+    }
+  },
+  {
+    $project: {
+      _id: 0,
+      day: "$_id",
+      topHours: { $slice: ["$hours", 4] }
+    }
+  }
+]
+
+
+
+
+Query 3: Analysis for overall tips during rush hour periods
+[
+  {
+    $group: {
+      _id: {
+        hour: "$trip_hour",
+        tips: { $sum: "$tip_amount" }
+      }
+    }
+  },
+  {
+    $group: {
+      _id: null,
+      totalTips: { $sum: "$_id.tips" },
+      rushHourTips: {
+        $sum: {
+          $cond: [
+            { $in: ["$_id.hour", [15, 16, 17, 18]] },
+            "$_id.tips",
+            0
+          ]
+        }
+      }
+    }
+  },
+  {
+    $project: {
+      _id: 0,
+      totalTips: 1,
+      rushHourTips: 1
+    }
+  }
+]
+
+
+
+
+
+
+
+
+
+
+
+
+Query 4: Analysis for Most used payment method in rush hour and in total
+
+
+db.taxi_trips.aggregate([
+  // Create two separate branches for total and rush hour calculations
+  {
+    $facet: {
+      totalMostUsed: [
+        // Group by payment type and count the trips
+        {
+          $group: {
+            _id: "$payment_type",
+            trip_count: { $sum: 1 }
+          }
+        },
+        // Sort by trip count in descending order
+        {
+          $sort: {
+            trip_count: -1
+          }
+        },
+        // Limit to the first result
+        {
+          $limit: 1
+        },
+        // Join with the payment collection to get the payment description
+        {
+          $lookup: {
+            from: "payment",
+            localField: "_id",
+            foreignField: "payment_type",
+            as: "payment_info"
+          }
+        },
+        // Unwind the payment_info array
+        {
+          $unwind: "$payment_info"
+        },
+        // Project the desired fields
+        {
+          $project: {
+            _id: 0,
+            payment_type: "$payment_info.payment_description",
+            trip_count: 1
+          }
+        }
+      ],
+      rushHourMostUsed: [
+        // Filter the trips during rush hours
+        {
+          $match: {
+            trip_hour: { $in: [15, 16, 17, 18] }
+          }
+        },
+        // Group by payment type and count the trips
+        {
+          $group: {
+            _id: "$payment_type",
+            trip_count: { $sum: 1 }
+          }
+        },
+        // Sort by trip count in descending order
+        {
+          $sort: {
+            trip_count: -1
+          }
+        },
+        // Limit to the first result
+        {
+          $limit: 1
+        },
+        // Join with the payment collection to get the payment description
+        {
+          $lookup: {
+            from: "payment",
+            localField: "_id",
+            foreignField: "payment_type",
+            as: "payment_info"
+          }
+        },
+        // Unwind the payment_info array
+        {
+          $unwind: "$payment_info"
+        },
+        // Project the desired fields
+        {
+          $project: {
+            _id: 0,
+            payment_type: "$payment_info.payment_description",
+            trip_count: 1
+          }
+        }
+      ]
+    }
+  },
+  // Combine the results into a single document
+  {
+    $project: {
+      _id: 0,
+      most_used_payment_method_total: { $arrayElemAt: ["$totalMostUsed", 0] },
+      most_used_payment_method_rush_hour: { $arrayElemAt: ["$rushHourMostUsed", 0] }
+    }
+  }
+])
