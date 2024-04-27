@@ -1,0 +1,90 @@
+TOTAL REVENUE GENERATED EACH MONTH 
+
+CODE -
+SELECT
+  DATE_TRUNC(pickup_date, MONTH) AS trip_month,
+  ROUND(SUM(total_amount),2) AS total_revenue,
+FROM `Dataset.taxi_trips` 
+WHERE pickup_date BETWEEN '2022-01-01' AND '2022-12-31'
+GROUP BY trip_month
+ORDER BY total_revenue DESC;
+
+
+TOTAL REVENUE GENERATED AND COMPARED WITH MANHATTAN'S REVENUE 
+
+CODE -
+SELECT COUNT(ID) AS total_trips,
+       ROUND(SUM(total_amount),2)
+FROM `ivory-being-421502.Dataset.taxi_trips`;
+
+CODE-
+SELECT
+  COUNT(ID) AS num_trips_manhattan
+  ROUND(SUM(t.total_amount), 2)
+FROM
+  `ivory-being-421502.Dataset.taxi_trips` t
+JOIN
+  `ivory-being-421502.Dataset.taxi_zone_lookup` zpu ON t.PULocationID = zpu.LocationID
+WHERE
+  zpu.Borough = 'Manhattan';
+
+
+
+TOTAL NO. OF TRIPS WITHIN EACH BOROUGH
+
+CODE-
+SELECT
+  zpu.Borough AS pickup_borough,
+  zdo.Borough AS dropoff_borough,
+  COUNT(*) AS num_trips
+FROM
+  `ivory-being-421502.Dataset.taxi_trips` t
+JOIN
+  `ivory-being-421502.Dataset.taxi_zone_lookup` zpu ON t.PULocationID = zpu.LocationID
+JOIN
+  `ivory-being-421502.Dataset.taxi_zone_lookup` zdo ON t.DOLocationID = zdo.LocationID
+WHERE
+  zpu.Borough = zdo.Borough
+GROUP BY
+  zpu.Borough,
+  zdo.Borough
+ORDER BY
+  num_trips DESC;
+
+
+
+REVENUE GENERATED WITH EACH RATE CODE
+
+CODE-
+SELECT
+  r.Ratecode_description AS rate_code,
+  COUNT(*) AS num_trips,
+  ROUND(SUM(t.total_amount),0) AS total_revenue
+FROM
+  `ivory-being-421502.Dataset.taxi_trips` t
+JOIN
+  `ivory-being-421502.Dataset.ratecode` r ON t.RatecodeID = r.RatecodeID
+WHERE Ratecode_description != 'Null/unknown'
+GROUP BY
+  r.Ratecode_description
+ORDER BY
+  total_revenue DESC;
+
+
+
+REVENUE GENERATED WITH EACH PAYMENT TYPE
+
+CODE -
+SELECT
+  p.payment_description,
+  COUNT(*) AS num_trips,
+  ROUND(SUM(t.total_amount), 2) AS total_revenue
+FROM
+  `ivory-being-421502.Dataset.taxi_trips` t
+JOIN
+  `ivory-being-421502.Dataset.payment` p ON t.payment_type = p.payment_type
+GROUP BY
+  p.payment_description
+ORDER BY
+  total_revenue DESC;
+
