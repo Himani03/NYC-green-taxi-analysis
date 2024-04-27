@@ -1,0 +1,157 @@
+﻿ORACLE DATABASE
+Query 1: Vendor 1 and 2 total trips and distance and avg duration
+SELECT 
+    v.VENDOR_DISCRIPTION,                                          -- Vendor Name from the joined table
+    ROUND(SUM(t.total_amount), 2) AS Total_Revenue,          -- Total revenue, rounded to 2 decimal places
+    ROUND(AVG(t.total_amount), 2) AS Average_Revenue_per_Trip, -- Average revenue per trip, rounded
+    ROUND(SUM(t.trip_distance), 2) AS Total_Distance,        -- Total distance, rounded
+    ROUND(AVG(t.trip_duration_minutes), 2) AS Average_Trip_Duration
+FROM 
+    taxi_trips t  -- Your original table with trips
+JOIN 
+    vendor v  -- Join with the vendor table
+ON 
+    t.VendorID = v.VendorID  -- Join condition
+WHERE 
+    t.VendorID IN (1, 2)  -- Filter for Vendors 1 and 2
+GROUP BY 
+    v.VENDOR_DISCRIPTION  -- Group by VendorName to get aggregated data
+ORDER BY 
+    v.VENDOR_DISCRIPTION;  -- Sort by VendorName
+
+
+
+
+Query 2: top 5 hotspot location covered by vendor 1 and vendor 2
+    
+-- Step 1: Calculate trip counts by VendorName and PULocationID
+WITH TripCounts AS (
+    SELECT 
+        v.VENDOR_DISCRIPTION,
+        t.PULocationID,
+        COUNT(*) AS Total_Trips
+    FROM 
+        taxi_trips t  -- Your table name
+    JOIN
+        vendor v  -- Join with vendor table to get VendorName
+    ON
+        t.VendorID = v.VendorID
+    WHERE 
+        t.VendorID IN (1)  -- Only include VendorID 1 and 2
+    GROUP BY 
+        v.VENDOR_DISCRIPTION, 
+        t.PULocationID
+)
+
+
+-- Step 2: Rank the locations by Total_Trips for each VendorName
+, RankedTrips AS (
+    SELECT 
+        VENDOR_DISCRIPTION,
+        PULocationID,
+        Total_Trips,
+        ROW_NUMBER() OVER (PARTITION BY VENDOR_DISCRIPTION ORDER BY Total_Trips DESC) AS trip_rank
+    FROM 
+        TripCounts
+)
+
+
+-- Step 3: Select the top 5 for each VendorName
+SELECT 
+    VENDOR_DISCRIPTION,
+    PULocationID,
+    Total_Trips
+FROM 
+    RankedTrips
+WHERE 
+    trip_rank <= 5  -- Get the top 5
+ORDER BY 
+    VENDOR_DISCRIPTION,
+    Total_Trips DESC;  -- Order by VendorName and trip counts
+
+
+
+
+
+
+
+
+Query 3: ratecode trips by vendor 1 and 2
+
+
+SELECT
+    VendorID,
+    RatecodeID,
+    COUNT(*) AS Ratecode_Count  -- Count of trips by rate code
+FROM
+    taxi_trips  -- Your data source
+WHERE
+    VendorID IN (1, 2)  -- Consider only Vendor 1 and Vendor 2
+    AND RatecodeID BETWEEN 1 AND 6  -- Focus on rate codes 1 to 6
+GROUP BY
+    VendorID,
+    RatecodeID  -- Group by vendor and rate code
+ORDER BY
+    VendorID,
+    RatecodeID;  -- Sort by vendor and rate code
+
+
+
+
+Query 4: trip type and vendor
+
+
+SELECT
+    tt.trip_description,
+    tr.VendorID,
+    COUNT(*) AS Trip_Count
+FROM
+    taxi_trips tr
+INNER JOIN
+    trip_type tt
+ON
+    tr.trip_type = tt.trip_type
+WHERE
+    tr.VendorID IN (1, 2)  -- Filter for Vendor 1 and 2
+GROUP BY
+    tt.trip_description,
+    tr.VendorID
+ORDER BY
+    tt.trip_description,
+    tr.VendorID;
+
+
+
+
+Query 5: distribution of trips by borough for Vendor 1 and Vendor 2
+
+
+WITH RankedBoroughs AS (
+    SELECT 
+        VendorID,
+        Borough,
+        COUNT(*) AS Trip_Count,
+        ROW_NUMBER() OVER (PARTITION BY VendorID ORDER BY COUNT(*) DESC) AS Rank
+    FROM 
+        taxi_trips t
+    JOIN 
+        taxi_zone_lookup l 
+    ON 
+        t.PULocationID = l.LocationID 
+    WHERE 
+        VendorID IN (1, 2) 
+    GROUP BY 
+        VendorID, Borough
+)
+
+
+SELECT
+    VendorID,
+    Borough,
+    Trip_Count
+FROM
+    RankedBoroughs
+WHERE
+    Rank <= 4
+ORDER BY
+    VendorID, Rank;
